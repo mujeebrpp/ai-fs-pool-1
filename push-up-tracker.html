@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Push-Up Tracker (MediaPipe + JS)</title>
+    <style>
+        /* Basic styling for layout and appearance */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+            color: #333;
+        }
+
+        h1 {
+            color: #1a73e8; /* Google Blue */
+        }
+
+        .container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+            margin: 20px auto; /* Center the container */
+            border-radius: 8px;
+            overflow: hidden; /* Ensure canvas fits within border */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .output_canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            /* Removed background-color: #fff; so video shows through if drawing fails */
+        }
+
+        /* Hide the raw video element as we draw onto the canvas */
+        .input_video {
+            display: none;
+        }
+
+        .controls {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .controls div {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+
+        #counterValue {
+            font-weight: bold;
+            color: #1a73e8; /* Google Blue */
+            font-size: 1.8em; /* Make counter stand out */
+        }
+
+        #status {
+            font-style: italic;
+            color: #5f6368; /* Google Grey */
+            font-size: 1.2em;
+        }
+
+        /* Style for drawing landmarks and connections */
+        .landmark-dot {
+            fill: #FF0000; /* Red dots */
+            stroke: #FFFFFF;
+            stroke-width: 1px;
+        }
+
+        .landmark-connection {
+            stroke: #00FF00; /* Green lines */
+            stroke-width: 4px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 700px) {
+            .container {
+                width: 95%;
+                max-width: 640px; /* Limit max width */
+                height: auto; /* Adjust height based on aspect ratio */
+                aspect-ratio: 640 / 480; /* Maintain aspect ratio */
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+            .controls div {
+                font-size: 1.2em;
+            }
+            #counterValue {
+                font-size: 1.5em;
+            }
+             #status {
+                font-size: 1em;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <h1>Push-Up Tracker</h1>
+
+    <div class="container">
+        <video class="input_video"></video>
+        <canvas class="output_canvas" width="640px" height="480px"></canvas>
+    </div>
+
+    <div class="controls">
+        <div>Count: <span id="counterValue">0</span></div>
+        <div>Status: <span id="status">Initializing...</span></div>
+    </div>
+
+    <script type="module"> // Use type="module" for modern JS features like top-level await
+
+        // --- Get HTML Elements ---
+        const videoElement = document.querySelector('.input_video');
+        const canvasElement = document.querySelector('.output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const counterElement = document.getElementById('counterValue');
+        const statusElement = document.getElementById('status');
+
+        // --- Global Variables ---
+        let pushupCounter = 0;
+        let pushupState = 'up'; // Possible states: 'up', 'down' (start in 'up' state)
+        // Access landmark names via POSE_LANDMARKS constants provided by the library
+        // e.g., window.POSE_LANDMARKS.LEFT_ELBOW
+        const POSE = window; // Alias for easier access
+
+        // --- Helper Function: Calculate Angle between three points ---
+        /**
+         * Calculates the angle formed by three landmarks.
+         * @param {object} a - First landmark (e.g., shoulder) {x, y, visibility}
+         * @param {object} b - Second landmark (vertex, e.g., elbow) {x, y, visibility}
+         * @param {object} c - Third landmark (e.g., wrist) {x, y, visibility}
+         * @returns {number} Angle in degrees (0-180).
+         */
+        function calculateAngle(a, b, c) {
+            // Calculate vectors ab and bc
+            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            // Convert radians to degrees
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+
+            // Ensure angle is between 0 and 180 degrees
+            if (angle > 180.0) {
+                angle = 360.0 - angle;
+            }
+            return angle;
+        }
+
+        // --- MediaPipe Pose Callback Function ---
+        /**
+         * This function is called by MediaPipe every time it processes a frame.
+         * @param {object} results - The pose detection results from MediaPipe.
+         */
+        function onResults(results) {
+            // Ensure landmarks are detected
+            if (!results.poseLandmarks) {
+                statusElement.textContent = 'Waiting for pose...';
+                // Clear canvas if no pose is detected? Or keep last frame?
+                // canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                return;
+            }
+
+            // Set canvas dimensions dynamically based on the video feed size
+            // This ensures the drawing aligns correctly if video resolution changes
+            if (canvasElement.width !== videoElement.videoWidth) {
+                 canvasElement.width = videoElement.videoWidth;
+                 canvasElement.height = videoElement.videoHeight;
+            }
+
+
+            // --- Drawing ---
+            canvasCtx.save(); // Save canvas state before drawing
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height); // Clear previous frame
+
+            // *** THIS IS THE FIX: Draw the video frame itself onto the canvas ***
+            // Ensure results.image contains the video frame data
+            if (results.image) {
+                canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            } else {
+                // Fallback if image isn't available in results (shouldn't normally happen with Camera util)
+                 canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+            }
+
+
+            // Get the detected landmarks
+            const landmarks = results.poseLandmarks;
+
+            // --- Landmark Extraction and Angle Calculation ---
+            // Use try-catch for robustness against missing landmarks (e.g., if body parts are out of view)
+            try {
+                // Get coordinates for Left side landmarks
+                const shoulderL = landmarks[POSE.POSE_LANDMARKS.LEFT_SHOULDER];
+                const elbowL = landmarks[POSE.POSE_LANDMARKS.LEFT_ELBOW];
+                const wristL = landmarks[POSE.POSE_LANDMARKS.LEFT_WRIST];
+
+                // Get coordinates for Right side landmarks
+                const shoulderR = landmarks[POSE.POSE_LANDMARKS.RIGHT_SHOULDER];
+                const elbowR = landmarks[POSE.POSE_LANDMARKS.RIGHT_ELBOW];
+                const wristR = landmarks[POSE.POSE_LANDMARKS.RIGHT_WRIST];
+
+                // --- Calculate Elbow Angles ---
+                // Check landmark visibility before using them in calculations.
+                // Visibility threshold (e.g., 0.5) means the landmark is likely detected correctly.
+                let angleL = 0, angleR = 0;
+                const visibilityThreshold = 0.5;
+                let visL = shoulderL.visibility > visibilityThreshold && elbowL.visibility > visibilityThreshold && wristL.visibility > visibilityThreshold;
+                let visR = shoulderR.visibility > visibilityThreshold && elbowR.visibility > visibilityThreshold && wristR.visibility > visibilityThreshold;
+
+                if (visL) {
+                    angleL = calculateAngle(shoulderL, elbowL, wristL);
+                }
+                if (visR) {
+                    angleR = calculateAngle(shoulderR, elbowR, wristR);
+                }
+
+                // --- Push-up Counting Logic ---
+                // Decide which angle(s) to use for counting.
+                // Using the average if both arms are visible, otherwise use the single visible arm.
+                let angle = 0;
+                if (visL && visR) {
+                    angle = (angleL + angleR) / 2; // Average angle
+                } else if (visL) {
+                    angle = angleL; // Use left angle
+                } else if (visR) {
+                    angle = angleR; // Use right angle
+                } else {
+                    // No reliable elbow angle available, skip counting for this frame
+                    statusElement.textContent = 'Elbows not clearly visible';
+                    // Still draw the detected landmarks for visual feedback
+                    POSE.drawConnectors(canvasCtx, landmarks, POSE.POSE_CONNECTIONS, {color: '#CCCCCC', lineWidth: 2}); // Grey connections
+                    POSE.drawLandmarks(canvasCtx, landmarks, {color: '#AAAAAA', radius: 3}); // Grey dots
+                    canvasCtx.restore(); // Restore canvas state
+                    return; // Exit the function early
+                }
+
+                // --- State Machine for Counting Reps ---
+                // Define angle thresholds for 'down' and 'up' positions.
+                // *** THESE VALUES MAY NEED TUNING based on camera angle and individual form ***
+                const thresholdDown = 85; // Angle (degrees) below which is considered 'down'
+                const thresholdUp = 150;  // Angle (degrees) above which is considered 'up'
+
+                // Check for state transitions
+                if (angle < thresholdDown) { // Potential 'down' state
+                    if (pushupState === 'up') {
+                        pushupState = 'down'; // Transition from 'up' to 'down'
+                        statusElement.textContent = 'Down';
+                    }
+                     // If already 'down', status remains 'Down'
+                     else {
+                         statusElement.textContent = 'Down';
+                     }
+                } else if (angle > thresholdUp) { // Potential 'up' state
+                    if (pushupState === 'down') {
+                        pushupState = 'up'; // Transition from 'down' to 'up'
+                        pushupCounter++;    // Increment counter on completing a rep (down -> up)
+                        counterElement.textContent = pushupCounter;
+                        statusElement.textContent = 'Up';
+                        // Optional: Add feedback like a sound or visual flash here
+                    }
+                     // If already 'up', status remains 'Up'
+                     else {
+                         statusElement.textContent = 'Up';
+                     }
+                } else if (pushupState === 'down') {
+                     // In the intermediate range while moving up
+                     statusElement.textContent = 'Going Up...';
+                } else if (pushupState === 'up') {
+                    // In the intermediate range while moving down
+                    statusElement.textContent = 'Going Down...';
+                }
+
+
+                // --- Draw Landmarks and Connections ---
+                // Use the drawing utilities provided by MediaPipe
+                POSE.drawConnectors(canvasCtx, landmarks, POSE.POSE_CONNECTIONS,
+                                     {color: '#00FF00', lineWidth: 4}); // Green connections
+                POSE.drawLandmarks(canvasCtx, landmarks,
+                                   {color: '#FF0000', radius: 6, /*lineWidth: 2, fillColor: 'rgba(255,0,0,0.5)'*/}); // Red landmarks
+
+                // Optional: Display calculated angles on screen for debugging/tuning
+                canvasCtx.fillStyle = 'blue';
+                canvasCtx.font = '18px Arial';
+                if (visL) canvasCtx.fillText(`L: ${angleL.toFixed(0)}°`, elbowL.x * canvasElement.width + 10, elbowL.y * canvasElement.height);
+                if (visR) canvasCtx.fillText(`R: ${angleR.toFixed(0)}°`, elbowR.x * canvasElement.width - 50, elbowR.y * canvasElement.height); // Adjust position for right
+
+
+            } catch (error) {
+                console.error("Error processing landmarks:", error);
+                statusElement.textContent = 'Error processing pose';
+            }
+
+            canvasCtx.restore(); // Restore the canvas state after drawing
+        }
+
+        // --- Initialize MediaPipe Pose ---
+        const pose = new POSE.Pose({locateFile: (file) => {
+          // Points to the location of the required WASM files for MediaPipe
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+        }});
+
+        // Set Pose options
+        pose.setOptions({
+          modelComplexity: 1,       // 0=light, 1=full, 2=heavy. Affects accuracy and performance.
+          smoothLandmarks: true,    // Reduces jitter between frames.
+          enableSegmentation: false, // Not needed for push-up counting, saves resources.
+          smoothSegmentation: false,
+          minDetectionConfidence: 0.5, // Minimum confidence score for initial detection.
+          minTrackingConfidence: 0.5   // Minimum confidence score for tracking landmarks across frames.
+        });
+
+        // Register the callback function to be executed on each processed frame
+        pose.onResults(onResults);
+
+        // --- Setup Camera ---
+        // Use MediaPipe's Camera utility for easy webcam setup and frame processing loop
+        const camera = new POSE.Camera(videoElement, {
+            onFrame: async () => {
+                // Send the current video frame to the Pose model for processing
+                await pose.send({image: videoElement});
+            },
+            width: 640,  // Desired camera resolution width
+            height: 480 // Desired camera resolution height
+        });
+
+        // Start the camera feed
+        camera.start()
+            .then(() => {
+                 statusElement.textContent = 'Ready! Start push-ups.';
+                 console.log("Camera started successfully.");
+            })
+            .catch(err => {
+                 // Handle errors like camera permission denied
+                 statusElement.textContent = `Error starting camera: ${err.message}. Please grant permission and refresh.`;
+                 console.error("Error starting camera:", err);
+            });
+
+    </script>
+</body>
+</html>
