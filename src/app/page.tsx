@@ -43,7 +43,7 @@ export default function LandingPage() {
                 Your Wellness Journey Starts Here
               </h2>
               <p className="mb-6 text-lg text-blue-100">
-                Book pool sessions, track your fitness progress, and manage your family's wellness all in one place.
+                Book pool sessions, track your fitness progress, and manage your family&apos;s wellness all in one place.
               </p>
               <div className="flex space-x-4">
                 <Link href="/register">
@@ -110,7 +110,7 @@ export default function LandingPage() {
               </div>
               <h3 className="mb-2 text-xl font-semibold">Family Wellness</h3>
               <p className="text-gray-600">
-                Manage your family's wellness journey together. Book group sessions and track everyone's progress in one place.
+                Manage your family&apos;s wellness journey together. Book group sessions and track everyone&apos;s progress in one place.
               </p>
             </div>
           </div>
@@ -132,7 +132,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <p className="text-gray-600">
-                "Nuxwell has transformed how I manage my fitness routine. The booking system is so intuitive, and I love being able to track my progress over time."
+                &quot;Nuxwell has transformed how I manage my fitness routine. The booking system is so intuitive, and I love being able to track my progress over time.&quot;
               </p>
               <div className="mt-4 flex text-yellow-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -163,7 +163,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <p className="text-gray-600">
-                "The family features are fantastic! I can book sessions for my whole family and keep track of everyone's progress. The trainers are excellent too."
+                &quot;The family features are fantastic! I can book sessions for my whole family and keep track of everyone&apos;s progress. The trainers are excellent too.&quot;
               </p>
               <div className="mt-4 flex text-yellow-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -194,7 +194,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <p className="text-gray-600">
-                "The AI fitness tests are incredible! I can see my progress over time and get personalized recommendations. It's like having a personal trainer at home."
+                &quot;The AI fitness tests are incredible! I can see my progress over time and get personalized recommendations. It&apos;s like having a personal trainer at home.&quot;
               </p>
               <div className="mt-4 flex text-yellow-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
