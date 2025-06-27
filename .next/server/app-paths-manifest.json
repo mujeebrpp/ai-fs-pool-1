@@ -1,8 +1,0 @@
-{
-  "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/bookings/page": "app/dashboard/bookings/page.js",
-  "/dashboard/fitness-test/push-up-tracker/page": "app/dashboard/fitness-test/push-up-tracker/page.js",
-  "/dashboard/fitness-test/hand-rotation-tracker/page": "app/dashboard/fitness-test/hand-rotation-tracker/page.js",
-  "/dashboard/fitness-test/page": "app/dashboard/fitness-test/page.js"
-}
