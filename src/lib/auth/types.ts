@@ -18,7 +18,8 @@ declare module 'next-auth' {
   }
 }
 
-declare module 'next-auth/jwt' {
+// In NextAuth.js v5, JWT types are part of the main module
+declare module 'next-auth' {
   interface JWT {
     role: string;
     id: string;

@@ -2,8 +2,9 @@ import NextAuth from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-import { compare } from 'bcrypt';
+// import { compare } from 'bcrypt'; // Unused import
 import { prisma } from '@/lib/db';
+import { Role } from '@prisma/client';
 
 export const {
   handlers: { GET, POST },
@@ -27,13 +28,14 @@ export const {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials.email as string },
         });
 
         if (!user) {
@@ -68,7 +70,7 @@ export const {
     },
     async session({ session, token }) {
       if (token) {
-        session.user.role = token.role as string;
+        session.user.role = token.role as Role;
         session.user.id = token.id as string;
       }
       return session;
