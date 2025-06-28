@@ -7,13 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "npx ts-node prisma/seed.ts",
-    "seed:slots": "npx ts-node prisma/seedSlots.ts",
-    "seed:next-days": "npx ts-node prisma/seedNextDays.ts",
+    "seed": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts",
+    "seed:slots": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seedSlots.ts",
+    "seed:next-days": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seedNextDays.ts",
     "db:reset": "npx prisma migrate reset --force && npm run seed"
   },
   "prisma": {
-    "seed": "npx ts-node prisma/seed.ts"
+    "seed": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",
