@@ -2,7 +2,6 @@ import NextAuth from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-// import { compare } from 'bcrypt'; // Unused import
 import { prisma } from '@/lib/db';
 import { Role } from '@prisma/client';
 

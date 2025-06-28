@@ -109,107 +109,28 @@ export default function SquatTracker() {
     mediaPipeLoadedRef.current = true;
   };
   
-  // Initialize webcam and pose detection after MediaPipe scripts are loaded
-  useEffect(() => {
-    if (!videoRef.current || !canvasRef.current) return;
+  // Fetch user's workout history
+  const fetchWorkoutHistory = async () => {
+    if (!session?.user?.id) return;
     
-    // Check if MediaPipe is loaded
-    const checkMediaPipeLoaded = () => {
-      const windowWithMediaPipe = window as unknown as MediaPipeWindow;
-      if (windowWithMediaPipe.Camera && windowWithMediaPipe.Pose) {
-        mediaPipeLoadedRef.current = true;
-        return true;
-      }
-      return false;
-    };
-    
-    // Initialize pose detection
-    const initializeTracking = async () => {
-      try {
-        setStatus('Initializing pose detection...');
-        
-        // Access MediaPipe objects from the window object
-        const windowWithMediaPipe = window as unknown as MediaPipeWindow;
-        
-        if (!windowWithMediaPipe.Pose || !windowWithMediaPipe.Camera) {
-          throw new Error('MediaPipe libraries not loaded');
-        }
-        
-        // Create a new Pose instance
-        const pose = new windowWithMediaPipe.Pose({
-          locateFile: (file: string) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-          }
-        });
-        
-        // Set pose options
-        pose.setOptions({
-          modelComplexity: 1,
-          smoothLandmarks: true,
-          enableSegmentation: false,
-          smoothSegmentation: false,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        });
-        
-        // Set up the results callback
-        pose.onResults(handlePoseResults);
-        
-        // Initialize camera
-        const camera = new windowWithMediaPipe.Camera(videoRef.current!, {
-          onFrame: async () => {
-            if (videoRef.current) {
-              await pose.send({ image: videoRef.current });
-            }
-          },
-          width: 640,
-          height: 480,
-        });
-        
-        poseDetectionRef.current = { pose, camera };
-        
-        // Start the camera
-        camera.start()
-          .then(() => {
-            setWebcamActive(true);
-            setStatus('Ready! Start squats.');
-            console.log("Camera started successfully");
-          })
-          .catch((err: Error) => {
-            setStatus(`Error starting camera: ${err.message}. Please grant permission and refresh.`);
-            console.error("Error starting camera:", err);
-          });
-      } catch (error) {
-        console.error("Error initializing pose detection:", error);
-        setStatus(`Error initializing: ${(error as Error).message}`);
-      }
-    };
-    
-    // If MediaPipe is not loaded yet, set up a polling mechanism
-    if (!mediaPipeLoadedRef.current && !checkMediaPipeLoaded()) {
-      const interval = setInterval(() => {
-        if (checkMediaPipeLoaded()) {
-          clearInterval(interval);
-          initializeTracking();
-        }
-      }, 500);
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/workouts');
       
-      return () => clearInterval(interval);
-    }
-    
-    // If MediaPipe is loaded, initialize tracking
-    if (mediaPipeLoadedRef.current) {
-      initializeTracking();
-    }
-    
-    // Cleanup function
-    return () => {
-      if (poseDetectionRef.current && poseDetectionRef.current.camera) {
-        poseDetectionRef.current.camera.stop();
-        console.log("Camera stopped");
+      if (response.ok) {
+        const data = await response.json();
+        // Filter for squat workouts only
+        const squatWorkouts = data.workouts.filter((workout: WorkoutHistoryItem) => 
+          workout.exercises.some((ex) => ex.name.toLowerCase().includes('squat'))
+        );
+        setWorkoutHistory(squatWorkouts);
       }
-    };
-  }, []);
+    } catch (error) {
+      console.error('Error fetching workout history:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Handle pose detection results
   const handlePoseResults = (results: PoseResult) => {
@@ -317,6 +238,109 @@ export default function SquatTracker() {
       setStatus('Error processing pose');
     }
   };
+  
+  // Initialize webcam and pose detection after MediaPipe scripts are loaded
+  useEffect(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    // Check if MediaPipe is loaded
+    const checkMediaPipeLoaded = () => {
+      const windowWithMediaPipe = window as unknown as MediaPipeWindow;
+      if (windowWithMediaPipe.Camera && windowWithMediaPipe.Pose) {
+        mediaPipeLoadedRef.current = true;
+        return true;
+      }
+      return false;
+    };
+    
+    // Initialize pose detection
+    const initializeTracking = async () => {
+      try {
+        setStatus('Initializing pose detection...');
+        
+        // Access MediaPipe objects from the window object
+        const windowWithMediaPipe = window as unknown as MediaPipeWindow;
+        
+        if (!windowWithMediaPipe.Pose || !windowWithMediaPipe.Camera) {
+          throw new Error('MediaPipe libraries not loaded');
+        }
+        
+        // Create a new Pose instance
+        const pose = new windowWithMediaPipe.Pose({
+          locateFile: (file: string) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+          }
+        });
+        
+        // Set pose options
+        pose.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          enableSegmentation: false,
+          smoothSegmentation: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+        
+        // Set up the results callback
+        pose.onResults(handlePoseResults);
+        
+        // Initialize camera
+        const camera = new windowWithMediaPipe.Camera(videoRef.current!, {
+          onFrame: async () => {
+            if (videoRef.current) {
+              await pose.send({ image: videoRef.current });
+            }
+          },
+          width: 640,
+          height: 480,
+        });
+        
+        poseDetectionRef.current = { pose, camera };
+        
+        // Start the camera
+        camera.start()
+          .then(() => {
+            setWebcamActive(true);
+            setStatus('Ready! Start squats.');
+            console.log("Camera started successfully");
+          })
+          .catch((err: Error) => {
+            setStatus(`Error starting camera: ${err.message}. Please grant permission and refresh.`);
+            console.error("Error starting camera:", err);
+          });
+      } catch (error) {
+        console.error("Error initializing pose detection:", error);
+        setStatus(`Error initializing: ${(error as Error).message}`);
+      }
+    };
+    
+    // If MediaPipe is not loaded yet, set up a polling mechanism
+    if (!mediaPipeLoadedRef.current && !checkMediaPipeLoaded()) {
+      const interval = setInterval(() => {
+        if (checkMediaPipeLoaded()) {
+          clearInterval(interval);
+          initializeTracking();
+        }
+      }, 500);
+      
+      return () => clearInterval(interval);
+    }
+    
+    // If MediaPipe is loaded, initialize tracking
+    if (mediaPipeLoadedRef.current) {
+      initializeTracking();
+    }
+    
+    // Cleanup function
+    return () => {
+      if (poseDetectionRef.current && poseDetectionRef.current.camera) {
+        poseDetectionRef.current.camera.stop();
+        console.log("Camera stopped");
+      }
+    };
+  }, [handlePoseResults]);
+  
   
   // Update squat state and count based on knee angle
   const updateSquatState = (angle: number) => {
@@ -439,35 +463,12 @@ export default function SquatTracker() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
   
-  // Fetch user's workout history
-  const fetchWorkoutHistory = async () => {
-    if (!session?.user?.id) return;
-    
-    try {
-      setIsLoading(true);
-      const response = await fetch('/api/workouts');
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Filter for squat workouts only
-        const squatWorkouts = data.workouts.filter((workout: WorkoutHistoryItem) => 
-          workout.exercises.some((ex) => ex.name.toLowerCase().includes('squat'))
-        );
-        setWorkoutHistory(squatWorkouts);
-      }
-    } catch (error) {
-      console.error('Error fetching workout history:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
   // Load workout history on component mount
   useEffect(() => {
     if (session?.user?.id) {
       fetchWorkoutHistory();
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, fetchWorkoutHistory]);
   
   // Start timer
   const startTimer = () => {

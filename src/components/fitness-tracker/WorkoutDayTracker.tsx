@@ -129,6 +129,66 @@ export default function WorkoutDayTracker({ workout, onClose }: WorkoutDayTracke
     mediaPipeLoadedRef.current = true;
   };
   
+  // Handle pose detection results
+  const handlePoseResults = (results: PoseResult) => {
+    if (!results.poseLandmarks) {
+      setStatus('Waiting for pose...');
+      return;
+    }
+    
+    // Draw the video frame and landmarks on the canvas
+    if (canvasRef.current) {
+      const canvasCtx = canvasRef.current.getContext('2d');
+      if (canvasCtx) {
+        // Clear the canvas
+        canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        
+        // Draw the video frame
+        if (videoRef.current) {
+          canvasCtx.drawImage(
+            videoRef.current, 
+            0, 0, 
+            canvasRef.current.width, 
+            canvasRef.current.height
+          );
+        }
+        
+        // Draw the landmarks
+        if (results.poseLandmarks) {
+          // Access drawConnectors and drawLandmarks from window
+          const drawUtils = window as unknown as DrawingUtils;
+          if (drawUtils.drawConnectors && drawUtils.drawLandmarks) {
+            drawUtils.drawConnectors(
+              canvasCtx, 
+              results.poseLandmarks, 
+              drawUtils.POSE_CONNECTIONS,
+              { color: '#00FF00', lineWidth: 4 }
+            );
+            drawUtils.drawLandmarks(
+              canvasCtx, 
+              results.poseLandmarks,
+              { color: '#FF0000', lineWidth: 2, radius: 6 }
+            );
+          }
+        }
+      }
+    }
+    
+    const landmarks = results.poseLandmarks;
+    
+    try {
+      // Get current exercise
+      const currentExercise = getCurrentExercise();
+      
+      // Analyze pose based on exercise type
+      analyzeExercisePose(currentExercise.name, landmarks);
+      
+    } catch (error) {
+      console.error("Error processing landmarks:", error);
+      setStatus('Error processing pose');
+    }
+  };
+  
   // Initialize webcam and pose detection after MediaPipe scripts are loaded
   useEffect(() => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -229,67 +289,8 @@ export default function WorkoutDayTracker({ workout, onClose }: WorkoutDayTracke
         console.log("Camera stopped");
       }
     };
-  }, [currentSection, currentExerciseIndex]);
+  }, [currentSection, currentExerciseIndex, handlePoseResults, getCurrentExercise]);
   
-  // Handle pose detection results
-  const handlePoseResults = (results: PoseResult) => {
-    if (!results.poseLandmarks) {
-      setStatus('Waiting for pose...');
-      return;
-    }
-    
-    // Draw the video frame and landmarks on the canvas
-    if (canvasRef.current) {
-      const canvasCtx = canvasRef.current.getContext('2d');
-      if (canvasCtx) {
-        // Clear the canvas
-        canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        
-        // Draw the video frame
-        if (videoRef.current) {
-          canvasCtx.drawImage(
-            videoRef.current, 
-            0, 0, 
-            canvasRef.current.width, 
-            canvasRef.current.height
-          );
-        }
-        
-        // Draw the landmarks
-        if (results.poseLandmarks) {
-          // Access drawConnectors and drawLandmarks from window
-          const drawUtils = window as unknown as DrawingUtils;
-          if (drawUtils.drawConnectors && drawUtils.drawLandmarks) {
-            drawUtils.drawConnectors(
-              canvasCtx, 
-              results.poseLandmarks, 
-              drawUtils.POSE_CONNECTIONS,
-              { color: '#00FF00', lineWidth: 4 }
-            );
-            drawUtils.drawLandmarks(
-              canvasCtx, 
-              results.poseLandmarks,
-              { color: '#FF0000', lineWidth: 2, radius: 6 }
-            );
-          }
-        }
-      }
-    }
-    
-    const landmarks = results.poseLandmarks;
-    
-    try {
-      // Get current exercise
-      const currentExercise = getCurrentExercise();
-      
-      // Analyze pose based on exercise type
-      analyzeExercisePose(currentExercise.name, landmarks);
-      
-    } catch (error) {
-      console.error("Error processing landmarks:", error);
-      setStatus('Error processing pose');
-    }
-  };
   
   // Analyze pose based on exercise type
   const analyzeExercisePose = (exerciseName: string, landmarks: Landmark[]) => {

@@ -84,6 +84,99 @@ export default function PushUpTracker() {
     mediaPipeLoadedRef.current = true;
   };
   
+  // Handle pose detection results
+  const handlePoseResults = (results: PoseResult) => {
+    if (!results.poseLandmarks) {
+      setStatus('Waiting for pose...');
+      return;
+    }
+    
+    // Draw the video frame and landmarks on the canvas
+    if (canvasRef.current) {
+      const canvasCtx = canvasRef.current.getContext('2d');
+      if (canvasCtx) {
+        // Clear the canvas
+        canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        
+        // Draw the video frame
+        if (videoRef.current) {
+          canvasCtx.drawImage(
+            videoRef.current, 
+            0, 0, 
+            canvasRef.current.width, 
+            canvasRef.current.height
+          );
+        }
+        
+        // Draw the landmarks
+        if (results.poseLandmarks) {
+          // Access drawConnectors and drawLandmarks from window
+          const drawUtils = window as unknown as DrawingUtils;
+          if (drawUtils.drawConnectors && drawUtils.drawLandmarks) {
+            drawUtils.drawConnectors(
+              canvasCtx, 
+              results.poseLandmarks, 
+              drawUtils.POSE_CONNECTIONS,
+              { color: '#00FF00', lineWidth: 4 }
+            );
+            drawUtils.drawLandmarks(
+              canvasCtx, 
+              results.poseLandmarks,
+              { color: '#FF0000', lineWidth: 2, radius: 6 }
+            );
+          }
+        }
+      }
+    }
+    
+    const landmarks = results.poseLandmarks;
+    
+    try {
+      // Get coordinates for Left side landmarks
+      const shoulderL = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
+      const elbowL = landmarks[POSE_LANDMARKS.LEFT_ELBOW];
+      const wristL = landmarks[POSE_LANDMARKS.LEFT_WRIST];
+
+      // Get coordinates for Right side landmarks
+      const shoulderR = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
+      const elbowR = landmarks[POSE_LANDMARKS.RIGHT_ELBOW];
+      const wristR = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
+
+      // Check landmark visibility
+      const visL = isLandmarkVisible(shoulderL) && isLandmarkVisible(elbowL) && isLandmarkVisible(wristL);
+      const visR = isLandmarkVisible(shoulderR) && isLandmarkVisible(elbowR) && isLandmarkVisible(wristR);
+
+      // Calculate angles
+      let angleL = 0, angleR = 0;
+      if (visL) {
+        angleL = calculateAngle(shoulderL, elbowL, wristL);
+      }
+      if (visR) {
+        angleR = calculateAngle(shoulderR, elbowR, wristR);
+      }
+
+      // Determine which angle to use
+      let angle = 0;
+      if (visL && visR) {
+        angle = (angleL + angleR) / 2; // Average angle
+      } else if (visL) {
+        angle = angleL; // Use left angle
+      } else if (visR) {
+        angle = angleR; // Use right angle
+      } else {
+        setStatus('Elbows not clearly visible');
+        return;
+      }
+      
+      // Update push-up state and count
+      updatePushUpState(angle);
+      
+    } catch (error) {
+      console.error("Error processing landmarks:", error);
+      setStatus('Error processing pose');
+    }
+  };
+  
   // Initialize webcam and pose detection after MediaPipe scripts are loaded
   useEffect(() => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -185,99 +278,6 @@ export default function PushUpTracker() {
       }
     };
   }, []);
-  
-  // Handle pose detection results
-  const handlePoseResults = (results: PoseResult) => {
-    if (!results.poseLandmarks) {
-      setStatus('Waiting for pose...');
-      return;
-    }
-    
-    // Draw the video frame and landmarks on the canvas
-    if (canvasRef.current) {
-      const canvasCtx = canvasRef.current.getContext('2d');
-      if (canvasCtx) {
-        // Clear the canvas
-        canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        
-        // Draw the video frame
-        if (videoRef.current) {
-          canvasCtx.drawImage(
-            videoRef.current, 
-            0, 0, 
-            canvasRef.current.width, 
-            canvasRef.current.height
-          );
-        }
-        
-        // Draw the landmarks
-        if (results.poseLandmarks) {
-          // Access drawConnectors and drawLandmarks from window
-          const drawUtils = window as unknown as DrawingUtils;
-          if (drawUtils.drawConnectors && drawUtils.drawLandmarks) {
-            drawUtils.drawConnectors(
-              canvasCtx, 
-              results.poseLandmarks, 
-              drawUtils.POSE_CONNECTIONS,
-              { color: '#00FF00', lineWidth: 4 }
-            );
-            drawUtils.drawLandmarks(
-              canvasCtx, 
-              results.poseLandmarks,
-              { color: '#FF0000', lineWidth: 2, radius: 6 }
-            );
-          }
-        }
-      }
-    }
-    
-    const landmarks = results.poseLandmarks;
-    
-    try {
-      // Get coordinates for Left side landmarks
-      const shoulderL = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
-      const elbowL = landmarks[POSE_LANDMARKS.LEFT_ELBOW];
-      const wristL = landmarks[POSE_LANDMARKS.LEFT_WRIST];
-
-      // Get coordinates for Right side landmarks
-      const shoulderR = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
-      const elbowR = landmarks[POSE_LANDMARKS.RIGHT_ELBOW];
-      const wristR = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
-
-      // Check landmark visibility
-      const visL = isLandmarkVisible(shoulderL) && isLandmarkVisible(elbowL) && isLandmarkVisible(wristL);
-      const visR = isLandmarkVisible(shoulderR) && isLandmarkVisible(elbowR) && isLandmarkVisible(wristR);
-
-      // Calculate angles
-      let angleL = 0, angleR = 0;
-      if (visL) {
-        angleL = calculateAngle(shoulderL, elbowL, wristL);
-      }
-      if (visR) {
-        angleR = calculateAngle(shoulderR, elbowR, wristR);
-      }
-
-      // Determine which angle to use
-      let angle = 0;
-      if (visL && visR) {
-        angle = (angleL + angleR) / 2; // Average angle
-      } else if (visL) {
-        angle = angleL; // Use left angle
-      } else if (visR) {
-        angle = angleR; // Use right angle
-      } else {
-        setStatus('Elbows not clearly visible');
-        return;
-      }
-      
-      // Update push-up state and count
-      updatePushUpState(angle);
-      
-    } catch (error) {
-      console.error("Error processing landmarks:", error);
-      setStatus('Error processing pose');
-    }
-  };
   
   // Update push-up state and count based on elbow angle
   const updatePushUpState = (angle: number) => {
