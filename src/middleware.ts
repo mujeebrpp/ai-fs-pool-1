@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
-import { auth } from 'next-auth/middleware';
+import { auth } from '@/lib/auth/auth';
 
-export async function middleware(request: NextRequest) {
-  const session = await auth();
+export default auth((request) => {
+  const session = request.auth;
   const isAuthenticated = !!session;
   const role = session?.user?.role || 'PUBLIC';
   
@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
   }
   
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [
