@@ -4,9 +4,9 @@ const nextConfig: NextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client']
   },
-  webpack: (config, { isServer, nextRuntime }) => {
-    // Externalize @prisma/client for Edge runtime
-    if (isServer && nextRuntime === 'edge') {
+  webpack: (config, { isServer }) => {
+    // Externalize @prisma/client for all server-side builds
+    if (isServer) {
       config.externals = config.externals || [];
       config.externals.push('@prisma/client');
     }
