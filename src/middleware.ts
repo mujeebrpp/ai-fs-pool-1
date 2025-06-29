@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth/auth';
+import { auth } from 'next-auth/middleware';
 
 export async function middleware(request: NextRequest) {
   const session = await auth();
