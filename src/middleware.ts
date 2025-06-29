@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth/auth';
+import NextAuth from 'next-auth';
+import { authConfig } from '@/lib/auth/auth';
+
+const { auth } = NextAuth({
+  ...authConfig,
+  // Don't use the Prisma adapter in middleware (Edge runtime)
+  adapter: undefined,
+});
 
 export default auth((request) => {
   const session = request.auth;

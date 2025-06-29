@@ -5,14 +5,9 @@ import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from '@/lib/db';
 import { Role } from '@prisma/client';
 
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  session: { strategy: 'jwt' },
+// Common configuration that can be shared between server and edge environments
+export const authConfig = {
+  session: { strategy: 'jwt' as const },
   pages: {
     signIn: '/login',
   },
@@ -75,4 +70,14 @@ export const {
       return session;
     },
   },
+};
+
+export const {
+  handlers: { GET, POST },
+  auth,
+  signIn,
+  signOut,
+} = NextAuth({
+  adapter: PrismaAdapter(prisma),
+  ...authConfig,
 });
