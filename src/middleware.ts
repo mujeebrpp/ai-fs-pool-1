@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
-import NextAuth from 'next-auth';
-import { baseAuthConfig } from '@/lib/auth/auth.base';
-
-const { auth } = NextAuth({
-  ...baseAuthConfig,
-  adapter: undefined, // Explicitly disable adapter for Edge runtime
-});
+import { auth } from '@/lib/auth/auth';
 
 export async function middleware(request: NextRequest) {
   const session = await auth();
