@@ -1,21 +1,20 @@
 import NextAuth from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from '@/lib/db';
 import { Role } from '@prisma/client';
+import { baseAuthConfig } from './auth.base';
 
-// Common configuration that can be shared between server and edge environments
-export const authConfig = {
-  session: { strategy: 'jwt' as const },
-  pages: {
-    signIn: '/login',
-  },
+export const {
+  handlers: { GET, POST },
+  auth,
+  signIn,
+  signOut,
+} = NextAuth({
+  ...baseAuthConfig,
+  adapter: PrismaAdapter(prisma),
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+    ...baseAuthConfig.providers.filter(provider => provider.id !== 'credentials'),
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
@@ -54,30 +53,4 @@ export const authConfig = {
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role;
-        token.id = user.id;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.role = token.role as Role;
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
-  },
-};
-
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  ...authConfig,
 });

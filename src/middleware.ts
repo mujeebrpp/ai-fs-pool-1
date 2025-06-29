@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import NextAuth from 'next-auth';
-import { authConfig } from '@/lib/auth/auth';
+import { baseAuthConfig } from '@/lib/auth/auth.base';
 
 const { auth } = NextAuth({
-  ...authConfig,
-  // Don't use the Prisma adapter in middleware (Edge runtime)
-  adapter: undefined,
+  ...baseAuthConfig,
+  adapter: undefined, // Explicitly disable adapter for Edge runtime
 });
 
-export default auth((request) => {
-  const session = request.auth;
+export async function middleware(request: NextRequest) {
+  const session = await auth();
   const isAuthenticated = !!session;
   const role = session?.user?.role || 'PUBLIC';
   
@@ -40,7 +39,7 @@ export default auth((request) => {
   }
   
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
